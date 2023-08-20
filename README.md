@@ -23,42 +23,48 @@ The Lambda function is written in Python and utilizes the `boto3` library to int
    git clone https://github.com/your-username/aws-lambda-blackhole-detector.git
 
 
-## Invoke using scheduler
 
 
-To invoke a function once a day using Amazon EventBridge (formerly known as Amazon CloudWatch Events), you can use the following steps:
 
-1. **Create or identify the target resource (e.g., Lambda function)**:
-   - If you don't already have a Lambda function, create one using the AWS Management Console or AWS CLI.
-   - Make sure your Lambda function has the appropriate permissions to be triggered by Amazon EventBridge.
+## Step 1: Creating an SNS Topic
 
-2. **Create an IAM role (if necessary)**:
-   - If you don't already have an IAM role that grants EventBridge permission to trigger your Lambda function, create one.
-   - The role should have the `AWSLambda_ReadOnlyAccess` and `AWSLambda_FullAccess` policies attached, or equivalent permissions.
-   - The trust policy should allow EventBridge to assume the role.
+1. Open the [Amazon SNS Console](https://console.aws.amazon.com/sns).
+2. In the SNS dashboard, click on "Create topic".
+3. Choose "Standard" as the type of the topic.
+4. Enter a name and display name for the topic.
+5. Click "Create topic".
 
-3. **Create an EventBridge rule**:
-   - In the AWS Management Console, navigate to the Amazon EventBridge service.
-   - Go to the "Rules" section and click the "Create rule" button.
-   - Enter a name and description for your rule.
-   - In the "Define pattern" section, choose "Schedule".
-   - Select "Cron expression" and enter a cron expression that corresponds to once a day at your desired time. For example, to run the function every day at 12:00 PM UTC, enter `0 12 * * ? *`.
+You will see the ARN for your newly created topic in the SNS dashboard.
 
-4. **Configure the target**:
-   - In the "Select targets" section, choose "Lambda function" as the target type.
-   - Select your Lambda function from the drop-down list.
-   - If you created an IAM role in step 2, select it as the "Existing role" under "Create a new role or select an existing role".
+## Step 2: Create a Secret in Secrets Manager
 
-5. **Configure input**:
-   - If your function requires specific input, configure the input for the target in the "Configure input" section.
+1. Open the [AWS Secrets Manager Console](https://console.aws.amazon.com/secretsmanager).
+2. Click "Create a new secret".
+3. Choose "Other types of secrets".
+4. In the key-value pair, input `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as the keys and provide your AWS Access Key ID and Secret Access Key as the values, respectively.
+5. Click "Next".
+6. Give your secret a name.
+7. Click "Next" and review the secret.
+8. Click "Create secret".
 
-6. **Create the rule**:
-   - Click the "Create" button at the bottom of the page to create the rule.
+## Step 3: Create a Lambda Function
 
-7. **Verify the rule**:
-   - Ensure that the rule appears in the list of rules in the EventBridge console.
-   - Verify that your function is being invoked as expected by checking the CloudWatch Logs for your Lambda function or any other monitoring solution you have in place.
+1. Open the [AWS Lambda Console](https://console.aws.amazon.com/lambda).
+2. Click "Create function".
+3. Choose "Author from scratch".
+4. Name your function and choose a runtime (e.g. Python 3.8).
+5. Under "Execution role", create a new role with basic permissions.
+6. Click "Create function".
 
-That's it! Your Lambda function should now be automatically invoked once a day at the specified time.
+## Step 4: Create EventBridge Rule to Invoke Lambda Function
 
-Keep in mind that Amazon EventBridge uses the UTC time zone by default. You may need to adjust the cron expression if you want the function to run at a specific time in a different time zone.
+1. Open the [Amazon EventBridge Console](https://console.aws.amazon.com/events).
+2. Click "Create rule".
+3. Give your rule a name.
+4. In the "Event Source" section, choose "Schedule". In the cron or rate expression field, enter `rate(1 day)` to run it once a day.
+5. In the "Targets" section, choose "Lambda function" from the dropdown menu and select your previously created Lambda function.
+6. Click "Create".
+
+Once you have completed these steps, your Lambda function will be triggered once a day by the EventBridge rule. When triggered, the Lambda function will publish a message to the SNS topic.
+
+**Note:** Make sure your Lambda function has appropriate permissions to access the SNS topic, Secrets Manager, and EventBridge. You can do this by adding the necessary permissions to the execution role of your Lambda function. Also, ensure that the AWS credentials stored in the Secrets Manager are valid and have permissions to perform the necessary actions.
