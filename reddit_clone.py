@@ -12,7 +12,7 @@ SECRET_KEY = "your-secret-key"  # Replace with a secure  key
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# Mock database (you should replace this with a real database)
+
 posts_db = []
 users_db = []
 
