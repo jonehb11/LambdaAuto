@@ -1,0 +1,71 @@
+from fastapi import FastAPI, HTTPException, Depends, Response
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+import string
+import random
+
+
+app = FastAPI()
+
+
+DATABASE_URL = "sqlite:///./url_shortener.db"
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+
+class URLMapping(Base):
+    __tablename__ = "url_mapping"
+
+    id = Column(Integer, primary_key=True, index=True)
+    short_url = Column(String, unique=True, index=True)
+    original_url = Column(String, unique=True, index=True)
+
+
+Base.metadata.create_all(bind=engine)
+
+# Create a function to get a database session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Generate a random short URL
+def generate_short_url():
+    characters = string.ascii_letters + string.digits
+    return ''.join(random.choice(characters) for _ in range(6))  # You can adjust the length as needed
+
+
+@app.post("/shorten", response_model=URLMapping)
+def shorten_url(original_url: str, db=Depends(get_db)):
+    # Check if the URL is already in the database
+    existing_mapping = db.query(URLMapping).filter(URLMapping.original_url == original_url).first()
+    if existing_mapping:
+        return existing_mapping
+
+   
+    short_url = generate_short_url()
+
+    # Create a new mapping
+    new_mapping = URLMapping(short_url=short_url, original_url=original_url)
+    db.add(new_mapping)
+    db.commit()
+    db.refresh(new_mapping)
+    return new_mapping
+
+# API route to redirect to the original URL
+@app.get("/{short_url}")
+def redirect_to_original_url(short_url: str, db=Depends(get_db)):
+    mapping = db.query(URLMapping).filter(URLMapping.short_url == short_url).first()
+    if mapping is None:
+        raise HTTPException(status_code=404, detail="Short URL not found")
+    
+    response = Response(content="Redirecting...", status_code=302)
+    response.headers["Location"] = mapping.original_url
+    return response
+
+# Run the FastAPI application with Uvicorn
+
